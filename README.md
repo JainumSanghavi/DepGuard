@@ -1,13 +1,48 @@
 # DepGuard
 
-DepGuard scans dependency manifests for known vulnerabilities using the free [OSV.dev](https://osv.dev) API.
-It supports `go.mod`, `package.json`, and `requirements.txt`, and works as a CI gate via `--fail-on`.
+A command-line vulnerability scanner for dependency manifests. DepGuard reads your `go.mod`, `package.json`, or `requirements.txt`, queries the [OSV.dev](https://osv.dev) vulnerability database, and produces a report of known CVEs with severity scores and patched versions.
+
+Designed to run locally or drop into any CI pipeline as a build gate.
+
+---
+
+## Who it's for
+
+| Role | Use case |
+|---|---|
+| **Developers** | Audit dependencies before shipping or merging |
+| **Security engineers** | Enforce a minimum vulnerability threshold across repos |
+| **DevOps / Platform teams** | Add a non-zero exit gate to CI pipelines |
+
+---
+
+## How it works
+
+```
+manifest file
+    → auto-detect format (go.mod / package.json / requirements.txt)
+    → parse declared packages and versions
+    → batch query OSV.dev API
+    → fetch CVE details concurrently (worker pool, in-memory cache)
+    → print table or JSON report
+    → exit 1 if --fail-on threshold is met (CI gate)
+```
+
+---
 
 ## Install
 
+**Binary:**
 ```bash
-go install github.com/depguard/depguard/cmd/depguard@latest
+go install github.com/JainumSanghavi/DepGuard/cmd/depguard@latest
 ```
+
+**Docker:**
+```bash
+docker pull ghcr.io/jainumsanghavi/depguard:latest
+```
+
+---
 
 ## Usage
 
@@ -17,43 +52,50 @@ depguard [flags] <manifest-file>
 Flags:
   --include-indirect    include indirect dependencies (go.mod only)
   --json                output JSON instead of a table
-  --fail-on=<level>     exit 1 if any vuln is at or above: low, medium, high, critical
+  --fail-on=<level>     exit 1 if any vuln at or above: low, medium, high, critical
 ```
+
+---
 
 ## Examples
 
 ```bash
-# Scan a Go module (direct deps only)
-depguard go.mod
+# Scan a Python project
+depguard requirements.txt
 
-# Include indirect dependencies
+# Scan a Go module including indirect dependencies
 depguard --include-indirect go.mod
 
 # Scan a Node.js project
 depguard package.json
 
-# Scan a Python project
-depguard requirements.txt
-
 # Output machine-readable JSON
-depguard --json go.mod
+depguard --json requirements.txt
 
-# Exit non-zero on high or critical vulns (CI gate)
+# CI gate — exit 1 on any high or critical vulnerability
 depguard --fail-on=high go.mod
 ```
 
-## Sample Output
-
-```
-PACKAGE                    VERSION   VULN ID               SEVERITY  CVSS  PATCHED
--------                    -------   -------               --------  ----  -------
-github.com/gin-gonic/gin   v1.9.1    GHSA-h395-qcrw-5vmf   high      7.5   v1.9.4
-golang.org/x/net           v0.17.0   GO-2023-2153           medium    5.3   v0.20.0
-
-2 vulnerabilities found in 2 packages.
+**Docker equivalent:**
+```bash
+docker run --rm -v $(pwd):/work ghcr.io/jainumsanghavi/depguard:latest --fail-on=high /work/go.mod
 ```
 
-## CI (GitHub Actions)
+---
+
+## Sample output
+
+**Python (`requirements.txt`)**
+
+![Python scan output](requirementsScan1.png)
+
+**Go (`go.mod`)**
+
+![Go scan output](requirementsScan2.png)
+
+---
+
+## CI integration (GitHub Actions)
 
 ```yaml
 jobs:
@@ -61,16 +103,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-      - name: Install DepGuard
-        run: go install github.com/depguard/depguard/cmd/depguard@latest
       - name: Scan for vulnerabilities
-        run: depguard --fail-on=high go.mod
-        # Exit code 1 when any high or critical vulnerability is found,
-        # which causes the workflow step to fail and blocks the PR.
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/work \
+            ghcr.io/jainumsanghavi/depguard:latest \
+            --fail-on=high /work/go.mod
+        # Exits 1 and fails the job if any high or critical CVE is found
 ```
+
+---
+
+## Technical highlights
+
+- **Concurrent CVE lookups** — `golang.org/x/sync/errgroup` worker pool with a semaphore (cap 10) for parallel OSV detail fetches
+- **In-memory cache** — deduplicates repeated vuln ID lookups across packages in the same scan
+- **CVSS v3 scoring** — computes numeric base scores from CVSS vector strings using the full CVSS v3.1 formula
+- **Single external dependency** — only `golang.org/x/sync`; everything else is standard library
+- **Docker image** — published to GHCR on every push to `main` via GitHub Actions
+
+---
 
 ## License
 
