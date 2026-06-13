@@ -1,0 +1,9 @@
+# Production dependencies
+requests==2.31.0
+flask==3.0.0
+sqlalchemy==2.0.23
+
+# Dev / range deps
+pytest>=7.4.0
+
+urllib3==2.1.0
