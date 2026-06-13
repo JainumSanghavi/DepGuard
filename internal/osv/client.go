@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 
@@ -97,12 +98,18 @@ func (c *Client) FetchDetails(ctx context.Context, ids []string) (map[string]*Vu
 		c.mu.Unlock()
 
 		if hit {
+			mu.Lock()
 			results[id] = cached
+			mu.Unlock()
 			continue
 		}
 
-		sem <- struct{}{}
 		g.Go(func() error {
+			select {
+			case sem <- struct{}{}:
+			case <-gctx.Done():
+				return gctx.Err()
+			}
 			defer func() { <-sem }()
 
 			detail, err := c.fetchOne(gctx, id)
@@ -144,8 +151,9 @@ func (c *Client) fetchOne(ctx context.Context, id string) (*VulnDetail, error) {
 		return nil, fmt.Errorf("osv fetch %s: status %d", id, resp.StatusCode)
 	}
 
+	const maxBody = 10 << 20 // 10 MB
 	var detail VulnDetail
-	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxBody)).Decode(&detail); err != nil {
 		return nil, err
 	}
 	return &detail, nil
