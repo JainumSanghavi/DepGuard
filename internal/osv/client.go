@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/depguard/depguard/internal/parser"
+	"github.com/JainumSanghavi/DepGuard/internal/parser"
 )
 
 const (

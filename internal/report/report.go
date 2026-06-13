@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/depguard/depguard/internal/osv"
-	"github.com/depguard/depguard/internal/parser"
+	"github.com/JainumSanghavi/DepGuard/internal/osv"
+	"github.com/JainumSanghavi/DepGuard/internal/parser"
 )
 
 // Finding is the result of a vulnerability check for one package+vuln pair.

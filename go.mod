@@ -1,4 +1,4 @@
-module github.com/depguard/depguard
+module github.com/JainumSanghavi/DepGuard
 
 go 1.25.1
 

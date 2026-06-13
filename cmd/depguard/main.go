@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/depguard/depguard/internal/osv"
-	"github.com/depguard/depguard/internal/parser"
-	"github.com/depguard/depguard/internal/report"
+	"github.com/JainumSanghavi/DepGuard/internal/osv"
+	"github.com/JainumSanghavi/DepGuard/internal/parser"
+	"github.com/JainumSanghavi/DepGuard/internal/report"
 )
 
 func main() {
